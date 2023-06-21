@@ -1,0 +1,27 @@
+
+BACKEND_H_FILES=$(wildcard */*.h)
+BACKEND_CC_FILES=$(wildcard game/*.cc)
+BACKEND_FILES=$(BACKEND_H_FILES) $(BACKEND_CC_FILES) Makefile.docker
+FRONTEND_FILES=$(wildcard */*.py)
+
+TEST_FILES=$(wildcard */*.test)
+TEST_EXES=$(subst .test,.test.exe,$(TEST_FILES))
+
+%.test.exe: %.test
+	@echo -n "$*... "
+	@g++ -x c++ $< -o $@
+	@{ timeout 5 ./$@ && echo pass; } || { echo fail; rm $@; exit 1; }
+	@rm $@
+
+tests_passed: $(TEST_EXES)
+	@echo all tests passed
+	@echo ----------------
+	@touch $@
+
+backend: $(BACKEND_FILES)
+	@g++ $(BACKEND_CC_FILES) -o $@
+
+run_docker: docker backend tests_passed
+	@./backend
+
+.PHONY: run_docker

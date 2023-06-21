@@ -1,0 +1,65 @@
+
+#define TEST(func, ...) if(func(__VA_ARGS__)) return -1
+
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <vector>
+#include "ProcessQueue.h"
+
+constexpr size_t buff_size = 1024;
+
+int test_process_queue(ProcessQueue<buff_size, size_t, uint8_t> &queue) {
+
+    bool good = true;
+
+    if(!fork()) {
+        for(size_t i = 0; i < buff_size << 2; i++) {
+            queue.serve([i](size_t s) {
+                if(s != i) s++;
+                return (uint8_t) s + 1;
+            });
+        }
+        exit(0);
+    }else {
+        for(size_t i = 0; i < buff_size << 2; i++) {
+            uint8_t expected = (uint8_t) i + 1;
+            good = good && queue(i) == expected;
+        }
+        wait(NULL);
+    }
+    return good ? 0 : -1;
+}
+
+int test_process_queue_multithread(ProcessQueue<buff_size, size_t, uint8_t> &queue) {
+
+    bool good = true;
+
+    if(!fork()) {
+        for(size_t i = 0; i < buff_size << 2; i++) {
+            queue.serve([i](size_t s) {
+                if(s != i) s++;
+                return (uint8_t) s + 1;
+            });
+        }
+        exit(0);
+    }else {
+        for(size_t i = 0; i < buff_size << 2; i++) {
+            uint8_t expected = (uint8_t) i + 1;
+            good = good && queue(i) == expected;
+        }
+        wait(NULL);
+    }
+    return good ? 0 : -1;
+}
+
+int main() {
+
+    void *addr = mmap(0, buff_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+    auto pqueue = new(addr) ProcessQueue<buff_size, size_t, uint8_t>;
+    auto &queue = *pqueue;
+
+    TEST(test_process_queue, queue);
+
+    return 0;
+}
