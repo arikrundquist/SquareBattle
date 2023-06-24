@@ -1,65 +1,50 @@
 
-#define TEST(func, ...) if(func(__VA_ARGS__)) return -1
-
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/mman.h>
-#include <vector>
 #include "ProcessQueue.h"
 
-constexpr size_t buff_size = 1024;
+#include <sys/mman.h>
+#include <unistd.h>
+#include <iostream>
+#include <thread>
 
-int test_process_queue(ProcessQueue<buff_size, size_t, uint8_t> &queue) {
-
-    bool good = true;
-
-    if(!fork()) {
-        for(size_t i = 0; i < buff_size << 2; i++) {
-            queue.serve([i](size_t s) {
-                if(s != i) s++;
-                return (uint8_t) s + 1;
-            });
-        }
-        exit(0);
-    }else {
-        for(size_t i = 0; i < buff_size << 2; i++) {
-            uint8_t expected = (uint8_t) i + 1;
-            good = good && queue(i) == expected;
-        }
-        wait(NULL);
-    }
-    return good ? 0 : -1;
-}
-
-int test_process_queue_multithread(ProcessQueue<buff_size, size_t, uint8_t> &queue) {
-
-    bool good = true;
-
-    if(!fork()) {
-        for(size_t i = 0; i < buff_size << 2; i++) {
-            queue.serve([i](size_t s) {
-                if(s != i) s++;
-                return (uint8_t) s + 1;
-            });
-        }
-        exit(0);
-    }else {
-        for(size_t i = 0; i < buff_size << 2; i++) {
-            uint8_t expected = (uint8_t) i + 1;
-            good = good && queue(i) == expected;
-        }
-        wait(NULL);
-    }
-    return good ? 0 : -1;
-}
+#define ProcessQueue InterprocessQueues<1024, uint32_t, uint64_t>
 
 int main() {
+    auto addr = mmap(0, sizeof(ProcessQueue), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+    auto &queue = *(new(addr) ProcessQueue);
 
-    void *addr = mmap(0, buff_size, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-    auto pqueue = new(addr) ProcessQueue<buff_size, size_t, uint8_t>;
-    auto &queue = *pqueue;
+    static_assert(ProcessQueue::capacity == 1024 / sizeof(uint64_t));
 
-    TEST(test_process_queue, queue);
+    bool good = true;
+    std::vector<std::thread> threads{};
+    if(fork()) {
+        threads.push_back(std::thread{[&queue, &good] {
+            for(size_t i = 0; i < 1024; i++) {
+                uint64_t data;
+                queue.receive(data);
+                if(data != i) {
+                    good = false;
+                    return;
+                }
+            }
+        }});
+        threads.push_back(std::thread{[&queue] {
+            for(size_t i = 0; i < 1024; i++) {
+                const uint32_t tmp = i;
+                queue.send(tmp);
+            }
+        }});
+    }else {
+        threads.push_back(std::thread{[&queue] {
+            for(size_t i = 0; i < 1024; i++) {
+                uint32_t data;
+                queue.receive(data);
+                size_t tmp = i | data;
+                queue.send(tmp);
+            }
+        }});
+    }
 
-    return 0;
+    for(auto & thread : threads) thread.join();
+    
+    return good ? 0 : -1;
 }

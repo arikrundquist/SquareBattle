@@ -1,7 +1,4 @@
 
-#include "graphics.h"
-#include "../utils/ProcessQueue.h"
-
 #include <string>
 #include <iostream>
 #include <unistd.h>
@@ -10,16 +7,20 @@
 #include <sys/prctl.h>
 #include <signal.h>
 
+#include "graphics.h"
+#include "backend.h"
+
 // TODO make this not just a void *
-void *launch_team(const std::string &team_dir, pid_t &pid) {
+ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
     
-    // create a region of shared memory with the child process
-    void *addr = mmap(0, BOARD_SIZE*BOARD_SIZE, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-    // TODO place a data structure at addr
+    // create a region of shared memory with the child process and place a message queue in it
+    void *addr = mmap(0, sizeof(ProcessQueue), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+    new(addr) ProcessQueue;
+    auto &queue = *(new(addr) ProcessQueue);
 
     // create the child process, return the shared memory
     pid = fork();
-    if(pid) return addr;
+    if(pid) return queue;
 
     /* ensure teams cannot cheat by looking at other teams */
     const char *path = team_dir.c_str();
