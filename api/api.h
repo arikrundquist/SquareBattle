@@ -3,6 +3,7 @@
 #define GAME_API_H
 
 #include <unistd.h>
+#include <cstdint>
 
 enum class action_t : uint8_t {
     NONE = 0,
@@ -47,11 +48,22 @@ public:
     static inline Action WATCH(direction_t direction) { return Action(action_t::WATCH, direction); }
     static inline Action UPGRADE(upgrade_t upgrade) { return Action(action_t::UPGRADE, upgrade); }
     static const Action NONE, HIDE;
+    static inline void decode(Action a, action_t &act, direction_t &dir, upgrade_t &up) {
+        act = (action_t) (a.action >> 4);
+        dir = (direction_t) (a.action & 0xF);
+        up = (upgrade_t) (a.action & 0x3);
+    }
 };
 
-struct Square {
-    virtual Action act() { return Action::NONE; };
-    virtual ~Square() = default;
+struct SquareData {
+    uint8_t health;
+    uint8_t max_actions;
+    uint8_t current_actions;
+    uint8_t action_interval;
+    uint8_t stealth;
+    uint8_t watching;
+    uint8_t can_watch : 4;
+    uint8_t can_attack : 1;
 };
 
 #endif

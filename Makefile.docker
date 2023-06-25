@@ -21,7 +21,7 @@ tests_passed: $(TEST_EXES)
 backend: $(BACKEND_FILES)
 	@g++ $(BACKEND_CC_FILES) -o $@
 
-run_docker: docker backend tests_passed
+run_docker: backend tests_passed
 	@./backend
 
 .PHONY: run_docker

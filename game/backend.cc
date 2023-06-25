@@ -8,7 +8,7 @@
 #include <signal.h>
 
 #include "graphics.h"
-#include "backend.h"
+#include "team_runner.h"
 
 // TODO make this not just a void *
 ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
@@ -34,13 +34,9 @@ ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
     chroot("/");
     /* now, all teams appear to load at the root directory */
     
-    // TODO load the team's dll
-    for(const auto & entry : std::filesystem::directory_iterator(".")) {
-        std::cout << entry.path().string() << std::endl;
-    }
-
     // TODO load a dll from these locations and start running
-    
+    launch_team(queue);
+
     // we should never reach this once everything is implemented
     exit(-1);
 }

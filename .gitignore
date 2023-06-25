@@ -3,3 +3,4 @@ docker
 ip.txt
 ip
 *.tmp
+*.so

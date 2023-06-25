@@ -1,5 +1,6 @@
 
 #include "../utils/ProcessQueue.h"
+#include "../api/api.h"
 
 #ifndef BACKEND_H
 #define BACKEND_H

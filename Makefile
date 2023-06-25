@@ -4,9 +4,14 @@ all: docker
 include Makefile.docker
 
 DOCKER_TAG=some-cool-name-here
+BUILD_TAG=some-build-name-here
 DOCKER_BUILD_COMMAND=docker build -t $(DOCKER_TAG) .
+DOCKER_BUILD_ENV_COMMAND=docker build -f teams/Dockerfile -t $(BUILD_TAG) .
 IP=$(shell cat ip.txt)
-DOCKER_RUN_COMMAND=docker run --env DISPLAY=$(IP):0 $(DOCKER_TAG)
+DOCKER_RUN_COMMAND=docker run -v ./teams/:/root/teams/ --env DISPLAY=$(IP):0 $(DOCKER_TAG)
+DOCKER_BUILD_TEAM_COMMAND=docker run -v .:/root/teams/team $(BUILD_TAG)
+
+TEAMS=$(sort $(dir $(wildcard teams/*/*)))
 
 PAUSE_COMMAND=read -p "press enter to continue..."
 
@@ -22,11 +27,16 @@ ip: ip.txt
 	@echo docker will be run with: $(DOCKER_RUN_COMMAND)
 	@$(PAUSE_COMMAND)
 
-docker: ip Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND_FILES)
+docker: ip Dockerfile teams/Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND_FILES)
 	@$(DOCKER_BUILD_COMMAND)
+	$(DOCKER_BUILD_ENV_COMMAND)
 	@touch docker
 
-run: docker
+$(TEAMS):
+	@cd $@ && $(DOCKER_BUILD_TEAM_COMMAND)
+	@chmod 777 $@team.so
+
+run: docker $(TEAMS)
 	@$(DOCKER_RUN_COMMAND)
 
-.PHONY: run
+.PHONY: run $(TEAMS)
