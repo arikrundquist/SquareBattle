@@ -58,8 +58,11 @@ public:
 template <size_t size, typename Message, typename Response>
 class InterprocessQueues {
     union MessageResponse {
+        void *_;
         Message message;
         Response response;
+
+        MessageResponse() : _(0) { }
     };
     CircularBuffer<size, MessageResponse> sender;
     CircularBuffer<size, MessageResponse> receiver;

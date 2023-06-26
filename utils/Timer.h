@@ -5,7 +5,7 @@
 #include <chrono>
 
 class Timer {
-    const std::chrono::steady_clock::time_point start;
+    std::chrono::steady_clock::time_point start;
 public:
     Timer() : start(std::chrono::steady_clock::now()) { }
     inline std::chrono::nanoseconds time() {
@@ -13,6 +13,9 @@ public:
     }
     inline bool timeout(int ms) {
         return time() >= std::chrono::milliseconds(ms);
+    }
+    inline void reset() {
+        start = std::chrono::steady_clock::now();
     }
 };
 

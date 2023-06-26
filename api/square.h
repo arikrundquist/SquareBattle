@@ -12,13 +12,17 @@
 
 #include "api.h"
 
+#define params const int view[3][3], const size_t pos[2], const SquareData &self, Square *&spawn
+
 struct Square {
-    virtual std::vector<Action> act(const int view[3][3], const int pos[2], const SquareData &self, Square *&spawn) {
-        return std::vector<Action>{Action::NONE};
+    virtual std::vector<Action> act(params) {
+        return std::vector<Action>{Action::NONE()};
     }
+    virtual void destroyed(const size_t pos[2], const int other_team) { }
     virtual ~Square() { }
 };
 
+API(const char *, display_name)();
 API(const char *, victory)();
 API(const char *, defeat)();
 

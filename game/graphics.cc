@@ -46,7 +46,7 @@ void init_graphics(pheader_t &header , color_t (*&framebuffer)[BOARD_SIZE]) {
     // framebuffer is either directly mapped to the file, or requires an additional buffer
 #if RESOLUTION == 1
     framebuffer = _frame_;
-    for(int y = 0; y < BOARD_SIZE; y++) for(int x = 0; x < BOARD_SIZE; x++) framebuffer[y][x] = {0, 0, 0};
+    for(int y = 0; y < BOARD_SIZE; y++) for(int x = 0; x < BOARD_SIZE; x++) framebuffer[y][x] = {0xFF, 0xFF, 0xFF};
 #else
     framebuffer = board;
 #endif

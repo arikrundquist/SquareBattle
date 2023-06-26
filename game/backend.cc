@@ -6,16 +6,16 @@
 #include <filesystem>
 #include <sys/prctl.h>
 #include <signal.h>
+#include <time.h>
 
-#include "graphics.h"
 #include "team_runner.h"
+#include "server.h"
 
 // TODO make this not just a void *
-ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
+ProcessQueue &launch_team(const std::string &team_dir, int team, pid_t &pid) {
     
     // create a region of shared memory with the child process and place a message queue in it
     void *addr = mmap(0, sizeof(ProcessQueue), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
-    new(addr) ProcessQueue;
     auto &queue = *(new(addr) ProcessQueue);
 
     // create the child process, return the shared memory
@@ -35,7 +35,7 @@ ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
     /* now, all teams appear to load at the root directory */
     
     // TODO load a dll from these locations and start running
-    launch_team(queue);
+    launch_team(queue, team);
 
     // we should never reach this once everything is implemented
     exit(-1);
@@ -43,24 +43,24 @@ ProcessQueue &launch_team(const std::string &team_dir, pid_t &pid) {
 
 int main() {
 
+    // set the seed
+    // eventually, this may be used to repeat runs
+    size_t seed = time(0);
+    printf("seed: %ld\n", seed);
+    srand(seed);
+
     // eventually, this will launch processes for each team
     std::vector<pid_t> pids{};
+    std::vector<ProcessQueue *> teams{};
     for (const auto & entry : std::filesystem::directory_iterator("teams")) {
         if(!entry.is_directory()) continue;
         pid_t pid = 0;
-        launch_team(entry.path().string(), pid);
+        teams.push_back(&launch_team(entry.path().string(), teams.size() + 1, pid));
         pids.push_back(pid);
     }
 
-    // create the graphics context and launch the frontend
-    pheader_t header;
-    color_t (*framebuffer)[BOARD_SIZE];
-    init_graphics(header, framebuffer);
-    // timeout after 10s
-    if(wait_frame(header, 10000)) goto end;
-    
-    // TODO replace with the actual game
-    test_graphics(header, framebuffer);
+    // run the game
+    serve(teams);
 
     // kill all child processes
     end:

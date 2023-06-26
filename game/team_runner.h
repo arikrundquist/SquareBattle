@@ -4,6 +4,6 @@
 
 #include "backend.h"
 
-void launch_team(const ProcessQueue &queue);
+void launch_team(ProcessQueue &queue, int team);
 
 #endif

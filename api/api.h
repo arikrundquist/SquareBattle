@@ -35,19 +35,22 @@ enum class upgrade_t : uint8_t {
 };
 
 class Action {
+    uint8_t action;
+
     inline Action(action_t action, uint8_t params) : action(_action_(action, params)) { };
     inline Action(action_t action, direction_t direction) : Action(action, (uint8_t) direction) { };
     inline Action(action_t action, upgrade_t upgrade) : Action(action, (uint8_t) upgrade) { };
     static inline uint8_t _action_(action_t act, uint8_t params) { return ((uint8_t) act << 4) | params; }
 public:
-    const uint8_t action;
     static inline Action MOVE(direction_t direction) { return Action(action_t::MOVE, direction); }
     static inline Action ATTACK(direction_t direction) { return Action(action_t::ATTACK, direction); }
     static inline Action SPAWN(direction_t direction) { return Action(action_t::SPAWN, direction); }
     static inline Action REPLICATE(direction_t direction) { return Action(action_t::REPLICATE, direction); }
     static inline Action WATCH(direction_t direction) { return Action(action_t::WATCH, direction); }
     static inline Action UPGRADE(upgrade_t upgrade) { return Action(action_t::UPGRADE, upgrade); }
-    static const Action NONE, HIDE;
+    static inline Action HIDE() { return Action(action_t::HIDE, 0); }
+    static inline Action NONE() { return Action(); }
+    Action() : Action(action_t::NONE, 0) { }
     static inline void decode(Action a, action_t &act, direction_t &dir, upgrade_t &up) {
         act = (action_t) (a.action >> 4);
         dir = (direction_t) (a.action & 0xF);
