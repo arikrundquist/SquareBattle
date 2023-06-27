@@ -7,6 +7,9 @@
 #include "server.h"
 #include "../utils/Timer.h"
 
+#include <iostream>
+#define printf(...) printf(__VA_ARGS__); fflush(stdout)
+
 struct TeamSquare {
     Square *square;
     SquareData data;

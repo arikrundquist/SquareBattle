@@ -12,8 +12,6 @@ int main() {
     auto addr = mmap(0, sizeof(ProcessQueue), PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     auto &queue = *(new(addr) ProcessQueue);
 
-    static_assert(ProcessQueue::capacity == 1024 / sizeof(uint64_t));
-
     bool good = true;
     std::vector<std::thread> threads{};
     if(fork()) {

@@ -71,7 +71,6 @@ void launch_team(ProcessQueue &queue, int team) {
     }
     delete square;
     printf("%s\n%s\n", victory(), defeat());
-    printf("%s\n", dlerror());
 
     dlclose(handle);
 }

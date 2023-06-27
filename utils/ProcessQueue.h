@@ -57,40 +57,23 @@ public:
 
 template <size_t size, typename Message, typename Response>
 class InterprocessQueues {
-    union MessageResponse {
-        void *_;
-        Message message;
-        Response response;
-
-        MessageResponse() : _(0) { }
-    };
-    CircularBuffer<size, MessageResponse> sender;
-    CircularBuffer<size, MessageResponse> receiver;
+    CircularBuffer<size * sizeof(Message), Message> messages;
+    CircularBuffer<size * sizeof(Response), Response> responses;
 public:
     InterprocessQueues() = default;
 
     inline void send(const Message &message) {
-        MessageResponse mr;
-        mr.message = message;
-        sender.send(mr);
+        messages.send(message);
     }
     inline void send(const Response &response) {
-        MessageResponse mr;
-        mr.response = response;
-        receiver.send(mr);
+        responses.send(response);
     }
     inline void receive(Message &message) {
-        MessageResponse mr;
-        receiver.receive(mr);
-        message = mr.message;
+        messages.receive(message);
     }
     inline void receive(Response &response) {
-        MessageResponse mr;
-        sender.receive(mr);
-        response = mr.response;
+        responses.receive(response);
     }
-
-    static constexpr size_t capacity = decltype(sender)::size;
 };
 
 #endif
