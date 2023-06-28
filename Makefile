@@ -33,11 +33,13 @@ docker: ip Dockerfile teams/Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND
 	@$(DOCKER_BUILD_ENV_COMMAND)
 	@touch docker
 
+$(TEAM_FILES): $(TEAMS)
+
 $(TEAMS):
 	@cd $@ && $(DOCKER_BUILD_TEAM_COMMAND)
 	@chmod 777 $@team.so
 
-run: $(TEAMS) docker
+run: docker
 	@$(DOCKER_RUN_COMMAND)
 
 .PHONY: run $(TEAMS)

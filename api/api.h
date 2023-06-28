@@ -12,7 +12,6 @@ enum class action_t : uint8_t {
     ATTACK,
     SPAWN,
     REPLICATE,
-    WATCH,
     UPGRADE,
 };
 
@@ -25,7 +24,7 @@ enum class direction_t : uint8_t {
     NORTHEAST = NORTH|EAST,
     NORTHWEST = NORTH|WEST,
     SOUTHEAST = SOUTH|EAST,
-    SOUTHWEST = SOUTH|WEST,
+    SOUTHWEST = SOUTH|WEST
 };
 
 enum class upgrade_t : uint8_t {
@@ -46,7 +45,6 @@ public:
     static inline Action ATTACK(direction_t direction) { return Action(action_t::ATTACK, direction); }
     static inline Action SPAWN(direction_t direction) { return Action(action_t::SPAWN, direction); }
     static inline Action REPLICATE(direction_t direction) { return Action(action_t::REPLICATE, direction); }
-    static inline Action WATCH(direction_t direction) { return Action(action_t::WATCH, direction); }
     static inline Action UPGRADE(upgrade_t upgrade) { return Action(action_t::UPGRADE, upgrade); }
     static inline Action HIDE() { return Action(action_t::HIDE, 0); }
     static inline Action NONE() { return Action(); }
@@ -59,14 +57,13 @@ public:
 };
 
 struct SquareData {
+    uint16_t cooldown;
     uint8_t health;
     uint8_t max_actions;
     uint8_t current_actions;
     uint8_t action_interval;
     uint8_t stealth;
-    uint8_t watching;
-    uint8_t can_watch : 4;
-    uint8_t can_attack : 1;
+    uint8_t can_attack;
 };
 
 #endif

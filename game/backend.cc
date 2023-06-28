@@ -46,12 +46,14 @@ int main() {
     // set the seed
     // eventually, this may be used to repeat runs
     size_t seed = time(0);
-    printf("seed: %ld\n", seed);
     srand(seed);
+    printf("seed: %ld\n", seed);
+    fflush(stdout);
 
-    // eventually, this will launch processes for each team
+    // launch processes for each team
     std::vector<pid_t> pids{};
     std::vector<ProcessQueue *> teams{};
+    for(int copies = 0; copies < 9; copies++)
     for (const auto & entry : std::filesystem::directory_iterator("teams")) {
         if(!entry.is_directory()) continue;
         pid_t pid = 0;

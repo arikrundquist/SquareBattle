@@ -3,8 +3,8 @@
 
 class TestSquare : public Square {
 
-    virtual std::vector<Action> act(params) override {
-        return std::vector<Action>{Action::MOVE(direction_t::NORTH)};
+    virtual Actions act(params) override {
+        return Action::MOVE(direction_t::NORTH);
     }
 };
 

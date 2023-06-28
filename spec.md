@@ -71,7 +71,6 @@ Resolution:
      - on collision, only the object with the most health remains, losing health equal to the second healthiest object (both destroyed if tie)
   3. objects with multiple actions only receive info for their starting location
   4. objects may move through spaces that are being attacked since movement is resolved first
-     - watched tiles are an exception to this, if an object moves through a watched tile (even if that tile only became watched this turn) it is immediately attacked
 
 Communication:
   1. queue of messages (object data) and responses (action)

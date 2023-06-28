@@ -14,10 +14,22 @@ struct Message {
     enum {
         SQUARE,
         DESTROY,
+        FRAME_START,
+        FRAME_END,
+        CLOSE,
     } type;
     union u {
         void *_;
-        SerializedSquare square;
+        struct {
+            Square *square;
+            size_t x, y;
+            int killer;
+        } destroyed;
+        struct {
+            SerializedSquare data;
+            int view[3][3];
+        } square;
+        size_t num;
 
         u() : _(0) { }
     } data;
@@ -33,6 +45,7 @@ struct SerializedAction {
 
 struct Response {
     enum {
+        INITIAL,
         ACTION,
         INVALID,
     } type;

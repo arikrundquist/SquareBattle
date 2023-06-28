@@ -37,8 +37,6 @@ void launch_team(ProcessQueue &queue, int team) {
     load(victory);
     load(defeat);
 
-    printf("%p %p %p %p\n", display_name, start, victory, defeat);
-
     // assert that we loaded all the symbols
     if(!(display_name && start && victory && defeat)) {
         if(display_name) {
@@ -53,24 +51,41 @@ void launch_team(ProcessQueue &queue, int team) {
     }
 
     // send the starting object to the backend
-    response.ACTION;
+    response.type = Response::INITIAL;
     response.data.action.square = start(team);
     queue.send(response);
     
-    auto square = start(1);
-    int view[3][3];
-    size_t pos[2];
-    SquareData data;
-    Square *spawn;
-    for(const auto & act : square->act(view, pos, data, spawn)) {
-        action_t a;
-        direction_t d;
-        upgrade_t u;
-        Action::decode(act, a, d, u);
-        printf("%d %d %d\n", a, d, u);
+    while(1) {
+        queue.receive(message);
+        if(message.type == Message::DESTROY) {
+            size_t pos[2];
+            auto square = message.data.destroyed;
+            pos[0] = square.x; pos[1] = square.y;
+            square.square->destroyed(pos, square.killer);
+            delete square.square;
+        }
+        if(message.type != Message::FRAME_START) break;
+        response.type = Response::ACTION;
+        while(1) {
+            queue.receive(message);
+            if(message.type != Message::SQUARE) break;
+
+            auto square = message.data.square.data;
+            size_t pos[2];
+            pos[0] = square.x; pos[1] = square.y;
+            Square *spawn = nullptr;
+            auto acts = square.square->act(message.data.square.view, pos, square.data, spawn);
+            response.data.action.square = spawn;
+            response.data.action.x = square.x;
+            response.data.action.y = square.y;
+            for(const auto & act : acts) {
+                response.data.action.action = act;
+                queue.send(response);
+            }
+        }
+        response.type = Response::INVALID;
+        queue.send(response);
     }
-    delete square;
-    printf("%s\n%s\n", victory(), defeat());
 
     dlclose(handle);
 }

@@ -7,4 +7,4 @@ WORKDIR /root/teams/team
 
 COPY ./api/ /root/api/
 
-CMD make team.so
+CMD timeout 30 make team.so

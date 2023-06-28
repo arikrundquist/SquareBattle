@@ -12,11 +12,23 @@
 
 #include "api.h"
 
+// for convenience
+class Actions {
+    std::vector<Action> actions;
+public:
+    template <typename... T>
+    Actions(T... actions) : actions(std::vector<Action>{actions...}) { }
+    auto begin() { return this->actions.begin(); }
+    auto end() { return this->actions.end(); }
+};
+
+// also for convenience
 #define params const int view[3][3], const size_t pos[2], const SquareData &self, Square *&spawn
 
+// basic interface, inherit from this
 struct Square {
-    virtual std::vector<Action> act(params) {
-        return std::vector<Action>{Action::NONE()};
+    virtual Actions act(params) {
+        return Action::NONE();
     }
     virtual void destroyed(const size_t pos[2], const int other_team) { }
     virtual ~Square() { }
