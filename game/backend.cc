@@ -7,6 +7,7 @@
 #include <sys/prctl.h>
 #include <signal.h>
 #include <time.h>
+#include <queue>
 
 #include "team_runner.h"
 #include "server.h"
@@ -41,28 +42,76 @@ ProcessQueue &launch_team(const std::string &team_dir, int team, pid_t &pid) {
     exit(-1);
 }
 
-int main() {
+// simple routine to read a number from a string
+template <typename T>
+T read(char *num) {
+    T val = 0;
+    for(int i = 0; num[i]; i++) {
+        val = val * 10 + num[i] - '0';
+    }
+    return val;
+}
 
-    // set the seed
-    // eventually, this may be used to repeat runs
-    size_t seed = time(0);
-    srand(seed);
-    printf("seed: %ld\n", seed);
-    fflush(stdout);
+int main(int argc, char **argv) {
+
+    // we need to load teams and colors as arguments
+    std::queue<std::string> team_dirs{};
+    std::vector<color_t> team_colors{};
+
+    // default background is white
+    team_colors.push_back({255, 255, 255});
+
+    // handle args
+    for(int i = 1; i < argc; i++) {
+        char *arg = argv[i];
+
+        // expect a flag to label the args
+        if(arg[0] != '-') continue;
+
+        // -b r g b
+        // set the background color
+        if(arg[1] == 'b') {
+            team_colors[0] = {
+                read<uint8_t>(argv[++i]),
+                read<uint8_t>(argv[++i]),
+                read<uint8_t>(argv[++i]),
+            };
+        }
+
+        // -t team r g b
+        // add a team by directory with a specific color
+        if(arg[1] == 't') {
+            team_dirs.push(std::string(argv[++i]));
+            team_colors.push_back({
+                read<uint8_t>(argv[++i]),
+                read<uint8_t>(argv[++i]),
+                read<uint8_t>(argv[++i]),
+            });
+        }
+
+        // -s seed
+        // set the seed
+        if(arg[1] == 's') {
+            size_t seed = read<size_t>(argv[++i]);
+            if(!seed) seed = time(0);
+            srand(seed);
+            printf("seed: %ld\n", seed);
+            fflush(stdout);
+        }
+    }
 
     // launch processes for each team
     std::vector<pid_t> pids{};
     std::vector<ProcessQueue *> teams{};
-    for(int copies = 0; copies < 9; copies++)
-    for (const auto & entry : std::filesystem::directory_iterator("teams")) {
-        if(!entry.is_directory()) continue;
+    while(team_dirs.size()) {
         pid_t pid = 0;
-        teams.push_back(&launch_team(entry.path().string(), teams.size() + 1, pid));
+        teams.push_back(&launch_team(team_dirs.front(), teams.size() + 1, pid));
         pids.push_back(pid);
+        team_dirs.pop();
     }
 
     // run the game
-    serve(teams);
+    serve(teams, team_colors);
 
     // kill all child processes
     end:

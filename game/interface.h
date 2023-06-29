@@ -23,7 +23,6 @@ struct Message {
         struct {
             Square *square;
             size_t x, y;
-            int killer;
         } destroyed;
         struct {
             SerializedSquare data;

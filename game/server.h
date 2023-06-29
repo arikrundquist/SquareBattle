@@ -7,6 +7,6 @@
 #include "backend.h"
 #include "graphics.h"
 
-void serve(const std::vector<ProcessQueue *> &teams);
+void serve(const std::vector<ProcessQueue *> &teams, const std::vector<color_t> &colors);
 
 #endif

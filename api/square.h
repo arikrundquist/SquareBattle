@@ -30,7 +30,7 @@ struct Square {
     virtual Actions act(params) {
         return Action::NONE();
     }
-    virtual void destroyed(const size_t pos[2], const int other_team) { }
+    virtual void destroyed(const size_t pos[2]) { }
     virtual ~Square() { }
 };
 

@@ -22,6 +22,6 @@ backend: $(BACKEND_FILES)
 	@g++ $(BACKEND_CC_FILES) -o $@
 
 run_docker: backend tests_passed
-	@./backend
+	@game/gui.py
 
 .PHONY: run_docker

@@ -57,19 +57,31 @@ void launch_team(ProcessQueue &queue, int team) {
     
     while(1) {
         queue.receive(message);
+
+        // handle square destruction
         if(message.type == Message::DESTROY) {
             size_t pos[2];
             auto square = message.data.destroyed;
             pos[0] = square.x; pos[1] = square.y;
-            square.square->destroyed(pos, square.killer);
+            
+            // notify player of square death
+            square.square->destroyed(pos);
+
+            // player should not delete the square
             delete square.square;
         }
+
+        // expect a frame start
         if(message.type != Message::FRAME_START) break;
         response.type = Response::ACTION;
         while(1) {
             queue.receive(message);
+
+            // expect request for square to determine action
+            // this also catches the frame end message
             if(message.type != Message::SQUARE) break;
 
+            // get action(s) from square
             auto square = message.data.square.data;
             size_t pos[2];
             pos[0] = square.x; pos[1] = square.y;
@@ -78,11 +90,15 @@ void launch_team(ProcessQueue &queue, int team) {
             response.data.action.square = spawn;
             response.data.action.x = square.x;
             response.data.action.y = square.y;
+
+            // send each action individually
             for(const auto & act : acts) {
                 response.data.action.action = act;
                 queue.send(response);
             }
         }
+
+        // send this as a flag that we have stopped sending actions
         response.type = Response::INVALID;
         queue.send(response);
     }

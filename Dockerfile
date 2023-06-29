@@ -11,6 +11,10 @@ RUN python -m ensurepip --upgrade
 RUN python -m pip install --upgrade pip
 RUN python -m pip install numpy pygame Pillow
 
+# gui stuff
+RUN dnf install PyQt6 -y
+RUN python -m pip install pyqt6
+
 # copy everything over
 WORKDIR /root/
 COPY . .

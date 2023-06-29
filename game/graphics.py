@@ -1,9 +1,7 @@
 #!/usr/bin/python
 
 import mmap
-from PIL import Image
 import numpy as np
-import os
 import pygame
 from time import sleep
 import ctypes
@@ -27,6 +25,8 @@ initial_size = header.buffer_size
 while initial_size < 512:
     initial_size *= 2
 screen = pygame.display.set_mode((initial_size, initial_size), pygame.RESIZABLE)
+screen.fill((255,255,255))
+pygame.display.update()
 while True:
     sleep(0.005)
     header = Header.from_buffer(header_buff)
@@ -41,9 +41,9 @@ while True:
         s = max(s)
     if s != size:
         size = s
-        pygame.display.set_mode((size, size), pygame.RESIZABLE)
+        #pygame.display.set_mode((size, size), pygame.RESIZABLE)
     img = pygame.surfarray.make_surface(mm)
-    img = pygame.transform.scale(img, (size, size))
+    img = pygame.transform.scale(img, pygame.display.get_window_size())
     screen.blit(img, (0, 0))
     pygame.display.update()
     header.frame_ticker = True
