@@ -22,6 +22,6 @@ backend: $(BACKEND_FILES)
 	@g++ $(BACKEND_CC_FILES) -o $@
 
 run_docker: backend tests_passed
-	@game/gui.py
+	@game/gui.py || echo do you have an x11 window running?
 
 .PHONY: run_docker
