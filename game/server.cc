@@ -130,12 +130,18 @@ public:
                 if(!square.data.current_actions) continue;
 
                 // send the data
-                m.data.square = {
+                m.data.square.data = {
                     square.square,
                     square.x,
                     square.y,
                     square.data
                 };
+                for(size_t y = 0; y < 3; y++) {
+                    for(size_t x = 0; x < 3; x++) {
+                        Team *other = team_positions[(square.y + y - 1 + BOARD_SIZE) % BOARD_SIZE][(square.x + x - 1 + BOARD_SIZE) % BOARD_SIZE].team;
+                        m.data.square.view[y][x] = other ? other->id() : 0;
+                    }
+                }
                 this->send(m);
             }
 
@@ -360,7 +366,7 @@ public:
         }
     }
 
-    void check_destroyed() {
+    bool check_destroyed() {
 
         // iterate backwards so we can erase elements
         for(int64_t i = squares.size()-1; i >= 0; i--) {
@@ -398,6 +404,15 @@ public:
                 continue;
             }
         }
+
+        // handle killing this team
+        bool team_destroyed = this->squares.size();
+        if(team_destroyed) {
+            Message m;
+            m.type = Message::CLOSE;
+            send(m);
+        }
+        return team_destroyed;
     }
 };
 
@@ -415,7 +430,7 @@ void draw(color_t (*framebuffer)[BOARD_SIZE], const std::vector<color_t> &colors
     }
 }
 
-void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t> &vcolors) {
+void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t> &vcolors, bool use_graphics) {
     
     // make these static so they don't get destroyed
     // if this function exits from a timeout
@@ -425,9 +440,11 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
     // create the graphics context and launch the frontend
     pheader_t header;
     color_t (*framebuffer)[BOARD_SIZE];
-    init_graphics(header, framebuffer);
-    // timeout after 10s
-    if(wait_frame(header, 10000)) return;
+    if(use_graphics) {
+        init_graphics(header, framebuffer);
+        // timeout after 10s
+        if(wait_frame(header, 10000)) return;
+    }
 
     // game start
     hard_timeout.reset();
@@ -470,9 +487,11 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
 
         // draw the first frame with all the teams placed
         size_t framenum = 0;
-        draw(framebuffer, colors);
-        publish_frame(header);
-        if(wait_frame(header, 1000)) goto end;
+        if(use_graphics) {
+            draw(framebuffer, colors);
+            publish_frame(header);
+            if(wait_frame(header, 1000)) goto end;
+        }
 
         while(1) {
             // frame start, reset timeout
@@ -498,15 +517,21 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
             for(auto & team : teams) {
                 team.resolve(framenum);
             }
+            int num_alive = 0;
             for(auto & team : teams) {
-                team.check_destroyed();
+                if(team.check_destroyed()) num_alive++;
             }
-            draw(framebuffer, colors);
 
             // render
-            publish_frame(header);
-            if(wait_frame(header, 1000)) break;
-            framenum++;
+            if(use_graphics) {
+                draw(framebuffer, colors);
+                publish_frame(header);
+                if(wait_frame(header, 1000)) break;
+                framenum++;
+            }
+
+            // if we are running headless, exit when 1 or fewer teams remain
+            if(!use_graphics && num_alive < 2) break;
         }
 
         end:

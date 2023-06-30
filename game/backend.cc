@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
     std::vector<color_t> team_colors{};
 
     // default background is white
+    bool use_graphics = true;
     team_colors.push_back({255, 255, 255});
 
     // handle args
@@ -98,6 +99,12 @@ int main(int argc, char **argv) {
             printf("seed: %ld\n", seed);
             fflush(stdout);
         }
+
+        // -n
+        // no graphics
+        if(arg[1] == 'n') {
+            use_graphics = false;
+        }
     }
 
     // launch processes for each team
@@ -111,7 +118,7 @@ int main(int argc, char **argv) {
     }
 
     // run the game
-    serve(teams, team_colors);
+    serve(teams, team_colors, use_graphics);
 
     // kill all child processes
     end:

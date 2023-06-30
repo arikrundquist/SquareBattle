@@ -34,10 +34,12 @@ struct Square {
     virtual ~Square() { }
 };
 
+// required
+API(Square *, start)(int team);
+
+// optional
 API(const char *, display_name)();
 API(const char *, victory)();
 API(const char *, defeat)();
-
-API(Square *, start)(int team);
 
 #endif

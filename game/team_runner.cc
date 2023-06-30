@@ -11,10 +11,7 @@
 #include "team_runner.h"
 
 #define printf(...) printf(__VA_ARGS__); fflush(stdout)
-#define load(func) func = (decltype(func)) dlsym(handle, #func); {\
-    auto err = dlerror();\
-    if(err) printf("%s\n", err);\
-}
+#define load(func) func = (decltype(func)) dlsym(handle, #func)
 
 void launch_team(ProcessQueue &queue, int team) {
 
@@ -32,13 +29,15 @@ void launch_team(ProcessQueue &queue, int team) {
     }
 
     // load symbols from team
-    load(display_name);
     load(start);
+
+    // these are optional
+    load(display_name);
     load(victory);
     load(defeat);
 
-    // assert that we loaded all the symbols
-    if(!(display_name && start && victory && defeat)) {
+    // assert that we loaded a start function
+    if(!start) {
         if(display_name) {
             printf("failed to load team: %s\n", display_name());
         }else {
