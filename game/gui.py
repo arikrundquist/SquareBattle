@@ -106,7 +106,7 @@ class Window(QtWidgets.QDialog):
 def main():
 
     def get_teams():
-        return [team for team in [os.path.join("./teams", f) for f in os.listdir("./teams")]  if os.path.isdir(team)]
+        return [team for team in [os.path.join("./teams", f) for f in os.listdir("./teams") if not f.startswith(".")] if os.path.isdir(team)]
 
     app = QtWidgets.QApplication([])
     window = Window("Square Battle", get_teams())
