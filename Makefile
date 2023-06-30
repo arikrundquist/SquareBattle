@@ -40,6 +40,7 @@ $(TEAMS):
 	@chmod 777 $@team.so
 
 run: docker
+	@git pull
 	@$(DOCKER_RUN_COMMAND)
 
 .PHONY: run $(TEAMS)
