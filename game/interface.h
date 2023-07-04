@@ -18,6 +18,8 @@ struct Message {
         FRAME_START,
         FRAME_END,
         CLOSE,
+        VICTORY,
+        DEFEAT,
     } type;
     union u {
         void *_;

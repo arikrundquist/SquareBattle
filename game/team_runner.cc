@@ -118,5 +118,16 @@ void launch_team(ProcessQueue &queue, int team) {
         queue.send(response);
     }
 
+    switch(message.type) {
+    case Message::VICTORY:
+        if(victory) printf("%s\n", victory());
+        break;
+    case Message::DEFEAT:
+        if(defeat) printf("%s\n", defeat());
+        break;
+    default:
+        break;
+    }
+
     dlclose(handle);
 }

@@ -59,3 +59,5 @@ class RandomSquare : public Square {
 };
 
 Square *start(int team, size_t board_size) { return new RandomSquare; }
+
+const char *victory() { return "random for the win"; }

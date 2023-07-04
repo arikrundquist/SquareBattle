@@ -225,6 +225,11 @@ public:
         m.data.destroyed.square = square;
         send(m);
     }
+    void victory() {
+        Message m;
+        m.type = Message::VICTORY;
+        send(m);
+    }
 
     bool resolve(size_t framenum) {
 
@@ -485,7 +490,7 @@ public:
         bool team_destroyed = !this->squares.size();
         if(team_destroyed) {
             Message m;
-            m.type = Message::CLOSE;
+            m.type = Message::DEFEAT;
             send(m);
         }
         return team_destroyed;
@@ -637,8 +642,12 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
             // clear the data from the last round
             clear_board();
 
-            // if we are running headless, exit when 1 or fewer teams remain
-            if(!use_graphics && num_alive < 2) break;
+            // exit when 1 or fewer teams remain
+            if(num_alive == 0) break;
+            if(num_alive == 1) {
+                teams.begin()->victory();
+                break;
+            }
         }
 
         end:
