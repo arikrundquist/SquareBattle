@@ -28,7 +28,7 @@ screen = pygame.display.set_mode((initial_size, initial_size), pygame.RESIZABLE)
 screen.fill((255,255,255))
 pygame.display.update()
 while True:
-    sleep(0.005)
+    sleep(0.0005)
     header = Header.from_buffer(header_buff)
     if pygame.QUIT in [event.type for event in pygame.event.get()]:
         break

@@ -11,6 +11,9 @@
 #include <iostream>
 #define printf(...) printf(__VA_ARGS__); fflush(stdout)
 #define DEBUG printf("%s %d\n", __FUNCTION__, __LINE__);
+#define LOG(...) //printf(__VA_ARGS__)
+
+Validator *validator = nullptr;
 
 class Team;
 struct TeamSquare;
@@ -65,6 +68,22 @@ struct TeamSquare {
     std::deque<std::pair<Action, Square *>> actions;
 };
 
+void print(const TeamSquare &square) {
+    printf(
+        "%ld %ld @ %p\n"
+        "  cooldown %d\n"
+        "  health %d\n"
+        "  max_actions %d\n"
+        "  current_actions %d\n"
+        "  action_interval %d\n"
+        "  stealth %d\n"
+        "  can_attack %d\n"
+    , square.x, square.y, square.square,
+    square.data.cooldown, square.data.health,
+    square.data.max_actions, square.data.current_actions,
+    square.data.action_interval, square.data.stealth, square.data.can_attack);
+}
+
 class Team {
     const int teamid;
     ProcessQueue *queue;
@@ -86,7 +105,7 @@ class Team {
         };
     }
 public:
-    inline int id() { return teamid; }
+    inline int id() const { return teamid; }
     Team(int teamid, ProcessQueue *queue, Square *square, size_t x, size_t y) : teamid(teamid), queue(queue) {
         TeamSquare first = spawn(square, x, y);
         this->squares.push_back(first);
@@ -127,7 +146,7 @@ public:
             for(const auto & square : this->squares) {
                 
                 // if the square can't do anything, just skip it
-                if(!square.data.current_actions) continue;
+                if(square.data.cooldown || !square.data.current_actions) continue;
 
                 // send the data
                 m.data.square.data = {
@@ -138,8 +157,22 @@ public:
                 };
                 for(size_t y = 0; y < 3; y++) {
                     for(size_t x = 0; x < 3; x++) {
-                        Team *other = team_positions[(square.y + y - 1 + BOARD_SIZE) % BOARD_SIZE][(square.x + x - 1 + BOARD_SIZE) % BOARD_SIZE].team;
-                        m.data.square.view[y][x] = other ? other->id() : 0;
+                        auto cell = team_positions[(square.y + y - 1 + BOARD_SIZE) % BOARD_SIZE][(square.x + x - 1 + BOARD_SIZE) % BOARD_SIZE];
+                        Team *other = cell.team;
+                        if(!other) {
+                            m.data.square.view[y][x] = 0;
+                            continue;
+                        }
+                        if(other == this) {
+                            m.data.square.view[y][x] = this->id();
+                            continue;
+                        }
+                        TeamSquare *s = cell.square;
+                        if(!s->data.stealth) {
+                            m.data.square.view[y][x] = other->id();
+                            continue;
+                        }
+                        m.data.square.view[y][x] = ((uint8_t) rand() <= s->data.stealth) ? 0 : other->id();
                     }
                 }
                 this->send(m);
@@ -166,6 +199,14 @@ public:
 
         // close the message thread
         message.join();
+
+        // clear the board
+        for(auto & square : this->squares) {
+            team_positions[square.y][square.x] = {
+                nullptr,
+                nullptr,
+            };
+        }
     }
 
     void destroy(TeamSquare &square) {
@@ -175,9 +216,19 @@ public:
         m.data.destroyed.x = square.x;
         m.data.destroyed.y = square.y;
         send(m);
+        validator->destroyAt(square.x, square.y);
+        square.square = nullptr;
+    }
+    void stillborn(Square *square) {
+        Message m;
+        m.type = Message::DELETE;
+        m.data.destroyed.square = square;
+        send(m);
     }
 
-    void resolve(size_t framenum) {
+    bool resolve(size_t framenum) {
+
+        bool did_stuff = false;
 
         // track these separately while we iterate over this->squares
         std::queue<TeamSquare> spawned;
@@ -189,36 +240,22 @@ public:
             size_t px = square.x, py = square.y;
             auto &data = square.data;
 
-            // clear the board
-            team_positions[py][px] = {
-                nullptr,
-                nullptr,
-            };
+            validator->activate_square(px, py, square.data.health);
 
             // if the action_interval has elapsed, the square gets all its actions back
-            if(framenum & data.action_interval == data.action_interval) data.current_actions = data.max_actions;
+            if(!data.action_interval || framenum % data.action_interval == 0) data.current_actions = data.max_actions;
 
             // handle cooldown
             if(data.cooldown) {
-
-                // can apply all actions to cooldown
-                if(data.cooldown >= data.current_actions) {
-                    data.cooldown -= data.current_actions;
-                    data.current_actions = 0;
-                    continue;
-                
-                // can pay for cooldown with current actions
-                }else {
-                    data.current_actions -= data.cooldown;
-                    data.cooldown = 0;
-                }
+                data.cooldown--;
+                validator->finalize_square();
+                continue;
             }
 
             // now handle each action
+            Square *new_square = nullptr;
+            if(square.actions.size()) new_square = square.actions[0].second;
             for(auto & action : square.actions) {
-
-                // no cheating!
-                if(!data.current_actions) break;
 
                 // decode the action
                 action_t act;
@@ -226,9 +263,14 @@ public:
                 upgrade_t up;
                 Action::decode(action.first, act, dir, up);
 
+                // no cheating!
+                if(!data.current_actions) continue;
+
                 // get the offset position (may not be required)
                 size_t x2 = px, y2 = py;
                 offset(x2, y2, dir);
+
+                if(act != action_t::NONE) did_stuff = true;
 
                 // handle the action
                 switch(act) {
@@ -237,6 +279,7 @@ public:
                 case action_t::ATTACK:
                     data.current_actions--;
                     if(data.can_attack) attacked[y2][x2]++;
+                    validator->attack(x2, y2, data.can_attack);
                     break;
 
 // macro to handle overflow
@@ -245,6 +288,7 @@ public:
                 case action_t::HIDE:
                     data.current_actions--;
                     inc(data.stealth);
+                    validator->hide();
                     break;
 
                 // move to the other square
@@ -253,54 +297,58 @@ public:
                     data.current_actions--;
                     px = x2; py = y2;
                     data.stealth = data.stealth >> 1;
-                    // TODO
+                    validator->move(x2, y2);
                     break;
 
-// quick macro to add a cooldown
-#define COOLDOWN(x)     if(data.current_actions >= x) {\
-                        data.current_actions -= x;\
-                    }else {\
-                        data.cooldown = x - data.current_actions;\
-                        data.current_actions = 0;\
-                    }
-
                 // make a new blank square
-                case action_t::SPAWN: COOLDOWN(100)
+                case action_t::SPAWN:
+                    data.current_actions = 0;
+                    data.cooldown = 99;
                     // ensure valid object
-                    if(action.second) {
-                        TeamSquare other = spawn(action.second, x2, y2);
-                        other.data.cooldown = 100;
+                    if(new_square) {
+                        TeamSquare other = spawn(new_square, x2, y2);
+                        other.data.cooldown = 99;
                         spawned.push(other);
                     }
+                    validator->spawn(x2, y2, new_square);
+                    new_square = nullptr;
                     break;
 
                 // clone this square
-                case action_t::REPLICATE: COOLDOWN(1000)
+                case action_t::REPLICATE:
+                    data.current_actions = 0;
+                    data.cooldown = 99;
                     // ensure valid object
-                    if(action.second) {;
+                    if(new_square) {
                         TeamSquare clone = square;
-                        clone.square = action.second;
+                        clone.square = new_square;
                         clone.x = x2;
                         clone.y = y2;
-                        // intentionally not overwriting clone.data.cooldown
                         spawned.push(clone);
                     }
+                    validator->replicate(x2, y2, new_square);
+                    new_square = nullptr;
                     break;
 
                 // upgrade this square
-                case action_t::UPGRADE: COOLDOWN(100)
+                case action_t::UPGRADE:
+                    data.current_actions = 0;
+                    data.cooldown = 99;
                     switch(up) {
 
                     // increase max actions and action interval
                     case upgrade_t::BLITZ:
                         inc(data.max_actions);
                         inc(data.action_interval);
+                        validator->blitz();
                         break;
 
                     // add health but increase action interval
                     case upgrade_t::HEAVY:
                         inc(data.health);
+                        inc(data.health);
                         inc(data.action_interval);
+                        validator->heavy();
                         break;
 
                     // increase max actions but reduce health and prevent attacks
@@ -309,13 +357,14 @@ public:
                         inc(data.max_actions);
                         data.health--;
                         data.can_attack = 0;
+                        validator->light();
                         break;
 
                     default:
                         break;
                     }
+
                     break;
-#undef COOLDOWN
 #undef inc
                 default:
                     continue;
@@ -323,6 +372,14 @@ public:
             }
 
             square.x = px; square.y = py;
+            validator->finalize_square();
+
+            if(new_square) stillborn(new_square);
+        }
+
+        // we've handled all actions, so clear action queues
+        for(auto & square : this->squares) {
+            square.actions.clear();
         }
 
         // add all the new squares
@@ -333,10 +390,12 @@ public:
 
         // place squares back onto board
         for(auto & square : squares) {
+            LOG("placing %ld %ld (hp=%d)\n", square.x, square.y, square.data.health);
             auto & cell = team_positions[square.y][square.x];
 
             // empty cell, easy
             if(!cell.team) {
+                LOG("easy\n");
                 cell.team = this;
                 cell.square = &square;
                 continue;
@@ -347,45 +406,53 @@ public:
 
             // both destroyed
             if(other->data.health == square.data.health) {
+                LOG("destroy both\n");
                 cell.team = nullptr;
                 cell.square = nullptr;
                 second_most_health[square.y][square.x] = square.data.health;
-                return;
+                continue;
             }
 
             // this destroyed
             if(other->data.health > square.data.health) {
                 auto & second = second_most_health[square.y][square.x];
+                LOG("other stronger (other=%d, 2nd=%d)\n", other->data.health, second);
                 if(square.data.health > second) second = square.data.health;
 
             // other destroyed
             }else {
+                cell.team = this;
+                cell.square = &square;
                 auto & second = second_most_health[square.y][square.x];
+                LOG("other weaker (other=%d, 2nd=%d)\n", other->data.health, second);
                 if(other->data.health > second) second = other->data.health;
             }
         }
+
+        return did_stuff;
     }
 
     bool check_destroyed() {
 
         // iterate backwards so we can erase elements
-        for(int64_t i = squares.size()-1; i >= 0; i--) {
-            auto & square = squares[i];
+        for(auto & square : squares) {
             auto x = square.x, y = square.y;
+            LOG("checking %ld %ld (hp=%d)\n", x, y, square.data.health);
             
             auto & cell = team_positions[y][x];
-            
+
             // if our square is not in the cell, we have been destroyed by collision
             if(cell.team != this || cell.square->square != square.square) {
+                LOG("destroyed\n");
                 destroy(square);
-                squares.erase(squares.begin() + i);
                 continue;
             }
             
             // total damage is the number of attacks
             // + the health of the strongest square we collided with
             auto damage = attacked[y][x] + second_most_health[y][x];
-            
+            LOG("damage %d\n", damage);
+
             // don't check case where there is no damage
             // this is to allow light squares to have 0 health
             if(!damage) continue;
@@ -400,13 +467,22 @@ public:
                 cell.team = nullptr;
                 cell.square = nullptr;
                 destroy(square);
-                squares.erase(squares.begin() + i);
                 continue;
             }
         }
 
+        for(int64_t idx = this->squares.size()-1; idx >= 0; idx--) {
+            if(this->squares[idx].square) continue;
+            LOG("erasing %ld %ld\n", this->squares[idx].x, this->squares[idx].y);
+            this->squares.erase(this->squares.begin()+idx);
+        }
+
+        for(auto & square : squares) {
+            team_positions[square.y][square.x].square = &square;
+        }
+
         // handle killing this team
-        bool team_destroyed = this->squares.size();
+        bool team_destroyed = !this->squares.size();
         if(team_destroyed) {
             Message m;
             m.type = Message::CLOSE;
@@ -416,22 +492,34 @@ public:
     }
 };
 
+// publish squares to framebuffer
 void draw(color_t (*framebuffer)[BOARD_SIZE], const std::vector<color_t> &colors) {
     for(size_t x = 0; x < BOARD_SIZE; x++) {
         for(size_t y = 0; y < BOARD_SIZE; y++) {
             auto & cell = team_positions[y][x];
-            if(cell.team) framebuffer[x][y] = colors[cell.team->id()];
-            else framebuffer[x][y] = colors[0];
-            
-            // clear the board
+            framebuffer[x][y] =  colors[cell.team ? cell.team->id() : 0];
+        }
+    }
+}
+
+// clear our work from the last round
+void clear_board() {
+    for(size_t x = 0; x < BOARD_SIZE; x++) {
+        for(size_t y = 0; y < BOARD_SIZE; y++) {
             attacked[y][x] = 0;
             second_most_health[y][x] = 0;
         }
     }
 }
 
-void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t> &vcolors, bool use_graphics) {
+void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t> &vcolors, bool use_graphics, Validator *_validator) {
     
+    // if no teams, do nothing
+    if(!vteams.size()) return;
+
+    if(!_validator) _validator = new Validator;
+    validator = _validator;
+
     // make these static so they don't get destroyed
     // if this function exits from a timeout
     static Timer hard_timeout;
@@ -452,12 +540,12 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
 
         // get all the valid teams and colors
         std::list<Team> teams{};
-        std::vector<color_t> colors{};
+        std::vector<color_t> colors{vcolors[0]};
         {
             std::vector<std::tuple<ProcessQueue *, Square *, int>> valid_teams;
             int teamid = 1;
-            for(int i = 0; i < vteams.size(); i++) {
-                const auto & team = vteams[i];
+            for(int i = 0; i < vteams.size(); ) {
+                const auto & team = vteams[i++];
                 const auto & color = vcolors[i];
                 hard_timeout.reset();
                 Response response;
@@ -480,7 +568,9 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
                         px = 2 + (size_t) rand() % (sx - 4);
                         py = 2 + (size_t) rand() % (sy - 4);
                     }
-                    teams.push_back(Team(std::get<2>(team), std::get<0>(team), std::get<1>(team), sx*x + px, sy*y + py));
+                    size_t startx = sx*x + px, starty = sy*y + py;
+                    teams.push_back(Team(std::get<2>(team), std::get<0>(team), std::get<1>(team), startx, starty));
+                    validator->start(startx, starty);
                 }
             }
         }
@@ -496,8 +586,10 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
         while(1) {
             // frame start, reset timeout
             hard_timeout.reset();
+            validator->frame(framenum);
 
             // start getting actions from teams
+            LOG("getting actions\n");
             std::vector<std::thread> team_threads;
             for(auto & team : teams) {
                 team_threads.push_back(std::thread([&team] {
@@ -514,12 +606,25 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
             hard_timeout.reset();
 
             // now actually perform the actions
-            for(auto & team : teams) {
-                team.resolve(framenum);
+            {
+                LOG("resolve actions\n");
+                bool did_stuff = false;
+                for(auto & team : teams) {
+                    did_stuff = team.resolve(framenum) || did_stuff;
+                }
+                validator->finish_frame();
+                framenum++;
+                if(!did_stuff) continue;
             }
+            LOG("check destroyed\n");
             int num_alive = 0;
-            for(auto & team : teams) {
-                if(team.check_destroyed()) num_alive++;
+            for(auto it = teams.begin(); it != teams.end(); ) {
+                if(it->check_destroyed()) {
+                    it = teams.erase(it);
+                }else {
+                    it++;
+                    num_alive++;
+                }
             }
 
             // render
@@ -527,8 +632,10 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
                 draw(framebuffer, colors);
                 publish_frame(header);
                 if(wait_frame(header, 1000)) break;
-                framenum++;
             }
+
+            // clear the data from the last round
+            clear_board();
 
             // if we are running headless, exit when 1 or fewer teams remain
             if(!use_graphics && num_alive < 2) break;
@@ -540,4 +647,9 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
     
     // yield until the game ends or a team hangs
     while(!closed && !hard_timeout.timeout(5000)) std::this_thread::yield();
+
+    // kill the graphics process, if any
+    if(use_graphics) close_graphics();
+
+    delete _validator;
 }

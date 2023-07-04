@@ -14,6 +14,7 @@ struct Message {
     enum {
         SQUARE,
         DESTROY,
+        DELETE,
         FRAME_START,
         FRAME_END,
         CLOSE,

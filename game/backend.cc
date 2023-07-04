@@ -118,14 +118,13 @@ int main(int argc, char **argv) {
     }
 
     // run the game
-    serve(teams, team_colors, use_graphics);
+    serve(teams, team_colors, use_graphics, Validator::make<RuleValidator>());
 
     // kill all child processes
     end:
     for(const auto &pid : pids) {
         kill(pid, SIGKILL);
     }
-    close_graphics();
 
     return 0;
 }

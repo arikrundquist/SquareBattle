@@ -1,6 +1,7 @@
 
 #include <dlfcn.h>
 #include <unistd.h>
+#include <unordered_set>
 
 #include <iostream>
 
@@ -8,6 +9,7 @@
 #include "interface.h"
 #undef IMPORT
 
+#include "board_size.h"
 #include "team_runner.h"
 
 #define printf(...) printf(__VA_ARGS__); fflush(stdout)
@@ -51,8 +53,10 @@ void launch_team(ProcessQueue &queue, int team) {
 
     // send the starting object to the backend
     response.type = Response::INITIAL;
-    response.data.action.square = start(team);
+    response.data.action.square = start(team, BOARD_SIZE);
     queue.send(response);
+
+    std::unordered_set<Square *> destroyed;
     
     while(1) {
         queue.receive(message);
@@ -68,6 +72,18 @@ void launch_team(ProcessQueue &queue, int team) {
 
             // player should not delete the square
             delete square.square;
+
+            destroyed.insert(square.square);
+
+            // get next message
+            continue;
+        }
+        if(message.type == Message::DELETE) {
+
+            // this square should never have been created
+            // delete it but do not call destroy
+            delete message.data.destroyed.square;
+            continue;
         }
 
         // expect a frame start

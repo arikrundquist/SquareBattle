@@ -57,7 +57,7 @@ public:
 };
 
 struct SquareData {
-    uint16_t cooldown;
+    uint8_t cooldown;
     uint8_t health;
     uint8_t max_actions;
     uint8_t current_actions;

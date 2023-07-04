@@ -11,7 +11,7 @@ IP=$(shell cat ip.txt)
 DOCKER_RUN_COMMAND=docker run --env DISPLAY=$(IP):0 $(DOCKER_TAG)
 DOCKER_BUILD_TEAM_COMMAND=docker run -v .:/root/teams/team $(BUILD_TAG)
 
-TEAMS=$(sort $(dir $(wildcard teams/*/*)))
+TEAMS=$(filter-out teams/./ teams/../,$(sort $(dir $(wildcard teams/*/*) $(wildcard teams/.*/*))))
 TEAM_FILES=$(addsuffix team.so,$(TEAMS))
 
 PAUSE_COMMAND=read -p "press enter to continue..."

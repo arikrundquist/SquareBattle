@@ -35,7 +35,7 @@ struct Square {
 };
 
 // required
-API(Square *, start)(int team);
+API(Square *, start)(int team, size_t board_size);
 
 // optional
 API(const char *, display_name)();

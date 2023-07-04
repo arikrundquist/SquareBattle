@@ -4,7 +4,8 @@
 
 #include <cstdint>
 
-#define BOARD_SIZE (1 << 6)
+#include "board_size.h"
+
 #define RESOLUTION 1
 
 typedef struct {
