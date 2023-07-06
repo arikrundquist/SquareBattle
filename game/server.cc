@@ -622,6 +622,7 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
                 if(!did_stuff) continue;
             }
             LOG("check destroyed\n");
+            size_t prev_alive = teams.size();
             int num_alive = 0;
             for(auto it = teams.begin(); it != teams.end(); ) {
                 if(it->check_destroyed()) {
@@ -644,7 +645,7 @@ void serve(const std::vector<ProcessQueue *> &vteams, const std::vector<color_t>
 
             // exit when 1 or fewer teams remain
             if(num_alive == 0) break;
-            if(num_alive == 1) {
+            if(num_alive == 1 && prev_alive != 1) {
                 teams.begin()->victory();
                 break;
             }

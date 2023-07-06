@@ -3,8 +3,8 @@ all: docker
 
 include Makefile.docker
 
-DOCKER_TAG=some-cool-name-here
-BUILD_TAG=some-build-name-here
+DOCKER_TAG=square-battle
+BUILD_TAG=square-battle-build-env
 DOCKER_BUILD_COMMAND=docker build -t $(DOCKER_TAG) .
 DOCKER_BUILD_ENV_COMMAND=docker build -f teams/Dockerfile -t $(BUILD_TAG) .
 IP=$(shell cat ip.txt)
@@ -16,7 +16,7 @@ TEAM_FILES=$(addsuffix team.so,$(TEAMS))
 
 PAUSE_COMMAND=read -p "press enter to continue..."
 
-ip.txt: getting-started.txt
+ip.txt: getting-started.txt README.md
 	@$(DOCKER_BUILD_ENV_COMMAND)
 	@cat getting-started.txt
 	@touch ip.txt
@@ -29,7 +29,7 @@ ip: ip.txt
 	@echo docker will be run with: $(DOCKER_RUN_COMMAND)
 	-@$(PAUSE_COMMAND)
 
-docker: ip Dockerfile teams/Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND_FILES) $(TEAM_FILES)
+docker: pull ip Dockerfile teams/Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND_FILES) $(TEAM_FILES)
 	@$(DOCKER_BUILD_COMMAND)
 	@$(DOCKER_BUILD_ENV_COMMAND)
 	@touch docker
@@ -41,7 +41,9 @@ $(TEAMS):
 	@chmod 777 $@team.so
 
 run: docker
-	@git pull
 	@$(DOCKER_RUN_COMMAND)
 
-.PHONY: run $(TEAMS)
+pull:
+	@git pull
+
+.PHONY: run pull $(TEAMS)

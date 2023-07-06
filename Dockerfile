@@ -21,7 +21,7 @@ COPY . .
 
 # ensure valid line endings
 RUN dnf install dos2unix -y
-RUN dos2unix *
+RUN dos2unix /root/game/*.py
 
 # for now, just call make run to build and run the project
 CMD make -f Makefile.docker run_docker
