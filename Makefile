@@ -17,16 +17,17 @@ TEAM_FILES=$(addsuffix team.so,$(TEAMS))
 PAUSE_COMMAND=read -p "press enter to continue..."
 
 ip.txt: getting-started.txt
+	@$(DOCKER_BUILD_ENV_COMMAND)
 	@cat getting-started.txt
 	@touch ip.txt
 	@echo docker will be built with: $(DOCKER_BUILD_COMMAND)
-	@$(PAUSE_COMMAND)
+	-@$(PAUSE_COMMAND)
 
 ip: ip.txt
 	@touch ip
 	@echo ip set to: "$(IP)"
 	@echo docker will be run with: $(DOCKER_RUN_COMMAND)
-	@$(PAUSE_COMMAND)
+	-@$(PAUSE_COMMAND)
 
 docker: ip Dockerfile teams/Dockerfile $(TEST_FILES) $(BACKEND_FILES) $(FRONTEND_FILES) $(TEAM_FILES)
 	@$(DOCKER_BUILD_COMMAND)

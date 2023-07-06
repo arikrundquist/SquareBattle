@@ -19,6 +19,10 @@ RUN python -m pip install pyqt6
 WORKDIR /root/
 COPY . .
 
+# ensure valid line endings
+RUN dnf install dos2unix -y
+RUN dos2unix *
+
 # for now, just call make run to build and run the project
 CMD make -f Makefile.docker run_docker
 # use this to verify your setup
