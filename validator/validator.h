@@ -3,6 +3,7 @@
 #define VALIDATOR_H
 
 #include <unistd.h>
+#include <cstdint>
 
 class Validator {
     size_t framenum = 0;
@@ -18,7 +19,7 @@ public:
         start_frame();
     }
     virtual void start(size_t x, size_t y) { }
-    virtual void activate_square(size_t x, size_t y, uint8_t health) { }
+    virtual void activate_square(size_t x, size_t y, void *squaredata) { }
     virtual void attack(size_t x, size_t y, bool can_attack=true) { }
     virtual void destroyAt(size_t x, size_t y) { }
     virtual void hide() { }

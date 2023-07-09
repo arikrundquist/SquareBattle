@@ -7,11 +7,10 @@
 
 #include "server.h"
 #include "../utils/Timer.h"
+#include "../utils/Logger.h"
 
-#include <iostream>
-#define printf(...) printf(__VA_ARGS__); fflush(stdout)
-#define DEBUG printf("%s %d\n", __FUNCTION__, __LINE__);
-#define LOG(...) //printf(__VA_ARGS__)
+#define LOG(...) //Logger::log(__VA_ARGS__)
+#define DEBUG LOG("%s %d\n", __FUNCTION__, __LINE__);
 
 Validator *validator = nullptr;
 
@@ -23,6 +22,7 @@ struct {
 } team_positions[BOARD_SIZE][BOARD_SIZE] = {0};
 uint16_t attacked[BOARD_SIZE][BOARD_SIZE] = {0};
 uint8_t second_most_health[BOARD_SIZE][BOARD_SIZE] = {0};
+bool collisions[BOARD_SIZE][BOARD_SIZE] = {0};
 
 // returns two integers, f1 and f2 such that the product
 // of the two integers is the given amount, f1 > f2,
@@ -245,17 +245,18 @@ public:
             size_t px = square.x, py = square.y;
             auto &data = square.data;
 
-            validator->activate_square(px, py, square.data.health);
-
             // if the action_interval has elapsed, the square gets all its actions back
             if(!data.action_interval || framenum % data.action_interval == 0) data.current_actions = data.max_actions;
 
             // handle cooldown
             if(data.cooldown) {
                 data.cooldown--;
+                validator->activate_square(px, py, &data);
                 validator->finalize_square();
                 continue;
             }
+
+            validator->activate_square(px, py, &data);
 
             // now handle each action
             Square *new_square = nullptr;
@@ -275,7 +276,8 @@ public:
                 size_t x2 = px, y2 = py;
                 offset(x2, y2, dir);
 
-                if(act != action_t::NONE) did_stuff = true;
+                if(act == action_t::NONE) continue;
+                did_stuff = true;
 
                 // handle the action
                 switch(act) {
@@ -358,10 +360,11 @@ public:
 
                     // increase max actions but reduce health and prevent attacks
                     case upgrade_t::LIGHT:
-                        if(!data.health) break;
-                        inc(data.max_actions);
-                        data.health--;
-                        data.can_attack = 0;
+                        if(data.health) {
+                            inc(data.max_actions);
+                            data.health--;
+                            data.can_attack = 0;
+                        }
                         validator->light();
                         break;
 
@@ -400,7 +403,6 @@ public:
 
             // empty cell, easy
             if(!cell.team) {
-                LOG("easy\n");
                 cell.team = this;
                 cell.square = &square;
                 continue;
@@ -408,28 +410,28 @@ public:
 
             // another square in cell
             auto other = cell.square;
+            collisions[square.y][square.x] = true;
+            auto & second = second_most_health[square.y][square.x];
 
             // both destroyed
             if(other->data.health == square.data.health) {
                 LOG("destroy both\n");
                 cell.team = nullptr;
                 cell.square = nullptr;
-                second_most_health[square.y][square.x] = square.data.health;
+                if(square.data.health > second) second = square.data.health;
                 continue;
             }
 
             // this destroyed
             if(other->data.health > square.data.health) {
-                auto & second = second_most_health[square.y][square.x];
                 LOG("other stronger (other=%d, 2nd=%d)\n", other->data.health, second);
                 if(square.data.health > second) second = square.data.health;
 
             // other destroyed
             }else {
+                LOG("other weaker (other=%d, 2nd=%d)\n", other->data.health, second);
                 cell.team = this;
                 cell.square = &square;
-                auto & second = second_most_health[square.y][square.x];
-                LOG("other weaker (other=%d, 2nd=%d)\n", other->data.health, second);
                 if(other->data.health > second) second = other->data.health;
             }
         }
@@ -458,9 +460,9 @@ public:
             auto damage = attacked[y][x] + second_most_health[y][x];
             LOG("damage %d\n", damage);
 
-            // don't check case where there is no damage
+            // don't check case where there is no damage or collision
             // this is to allow light squares to have 0 health
-            if(!damage) continue;
+            if(!damage && !collisions[y][x]) continue;
 
             // square still standing, but took damage
             if(damage < square.data.health) {
@@ -513,6 +515,7 @@ void clear_board() {
         for(size_t y = 0; y < BOARD_SIZE; y++) {
             attacked[y][x] = 0;
             second_most_health[y][x] = 0;
+            collisions[y][x] = false;
         }
     }
 }

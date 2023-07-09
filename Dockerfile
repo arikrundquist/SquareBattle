@@ -15,12 +15,12 @@ RUN python -m pip install numpy pygame Pillow
 RUN dnf install PyQt6 -y
 RUN python -m pip install pyqt6
 
+# ensure valid line endings
+RUN dnf install dos2unix -y
+
 # copy everything over
 WORKDIR /root/
 COPY . .
-
-# ensure valid line endings
-RUN dnf install dos2unix -y
 RUN dos2unix /root/game/*.py
 
 # for now, just call make run to build and run the project

@@ -1,6 +1,6 @@
 
 BACKEND_H_FILES=$(wildcard */*.h)
-BACKEND_CC_FILES=$(wildcard game/*.cc) $(wildcard validator/*.cc)
+BACKEND_CC_FILES=$(wildcard game/*.cc) $(wildcard validator/*.cc) $(wildcard utils/*.cc)
 BACKEND_FILES=$(BACKEND_H_FILES) $(BACKEND_CC_FILES) Makefile.docker
 FRONTEND_FILES=$(wildcard */*.py)
 

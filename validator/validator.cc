@@ -1,12 +1,12 @@
 
-#include "../game/graphics.h"
+#include "../game/board_size.h"
+
 #include "validator.h"
 
-#include <iostream>
+#include "../utils/Logger.h"
 
-#define printf(...) printf(__VA_ARGS__); fflush(stdout)
-#define DEBUG printf("%s %d\n", __FUNCTION__, __LINE__);
-#define LOG(...) //printf(__VA_ARGS__)
+#define LOG(...) //Logger::log(__VA_ARGS__)
+#define DEBUG LOG("%s %d\n", __FUNCTION__, __LINE__);
 
 struct Square {
     
@@ -14,12 +14,13 @@ struct Square {
     Square *prev = nullptr;
     Square *next = nullptr;
 
-    // square state
+    // square state (matches SquareData)
     uint8_t cooldown = 0;
     uint8_t health = 1;
     uint8_t max_actions = 1;
     uint8_t current_actions = 0;
     uint8_t action_interval = 0;
+    uint8_t stealth = 0;
     uint8_t can_attack = 1;
 };
 
@@ -54,7 +55,8 @@ class RuleValidator : public Validator {
             damage += collision_health[x][y];
             uint16_t health = s->health;
             LOG("placing %ld %ld (hp=%d, damage=%d)\n", x, y, health, damage);
-            if(health > damage || damage == 0) next_state[x][y] = s;
+            if(health > damage) next_state[x][y] = s;
+            else if(damage == 0 && num_to_destroy[x][y] == 0) next_state[x][y] = s;
             else {
                 collision_health[x][y] = std::max(collision_health[x][y], s->health);
                 num_to_destroy[x][y]++;
@@ -86,7 +88,7 @@ class RuleValidator : public Validator {
     }
 
     void bad(const char *message) {
-        printf("%s\n", message);
+        printf("frame %d: %s\n", this->frame(), message);
         exit(-1);
     }
     inline void check_actions() {
@@ -107,12 +109,23 @@ public:
         if(state[x][y]) bad("two teams started at the same location");
         state[x][y] = s;
     }
-    virtual void activate_square(size_t x, size_t y, uint8_t health) override {
-        LOG("%s %ld %ld (hp=%d)\n", __func__, x, y, health);
+    virtual void activate_square(size_t x, size_t y, void *squaredata) override {
+        
+        LOG("%s %ld %ld\n", __func__, x, y);
 
         if(!(active = state[x][y])) bad("non-existant square");
-        if(active->health != health) bad("square health incorrect");
         
+        uint8_t *data = (uint8_t *) squaredata;
+#define check(element) if(active->element != *(data++)) {printf("found %d but expected %d\n", *(data-1), active->element); bad("square " #element " incorrect");}
+        check(cooldown);
+        check(health);
+        check(max_actions);
+        check(current_actions);
+        check(action_interval);
+        check(stealth);
+        check(can_attack);
+#undef  check
+                
         state[x][y] = nullptr;
         sx = x; sy = y;
         cx = sx; cy = sy;
@@ -135,6 +148,7 @@ public:
         LOG("%s\n", __func__);
 
         check_actions();
+        if(!++(active->stealth)) active->stealth--;
     }
     virtual void move(size_t x, size_t y) override {
         LOG("%s %ld %ld\n", __func__, x, y);
@@ -142,6 +156,7 @@ public:
         check_actions();
         check_adjacency(x, y, "moving to");
         cx = x; cy = y;
+        active->stealth /= 2;
     }
     virtual void spawn(size_t x, size_t y, bool valid) override {
         LOG("%s %ld %ld\n", __func__, x, y);
@@ -149,6 +164,7 @@ public:
         check_actions();
         check_adjacency(x, y, "spawning");
         active->cooldown = 99;
+        active->current_actions = 0;
         if(!valid) return;
         auto s = new Square;
         s->cooldown = 99;
@@ -163,6 +179,7 @@ public:
         check_actions();
         check_adjacency(x, y, "replicating");
         active->cooldown = 99;
+        active->current_actions = 0;
         if(!valid) return;
         auto s = new Square;
         *s = *active;
@@ -178,6 +195,7 @@ public:
 
         check_actions();
         active->cooldown = 99;
+        active->current_actions = 0;
         inc(active->max_actions);
         inc(active->action_interval);
     }
@@ -186,6 +204,7 @@ public:
 
         check_actions();
         active->cooldown = 99;
+        active->current_actions = 0;
         inc(active->health);
         inc(active->health);
         inc(active->action_interval);
@@ -194,8 +213,9 @@ public:
         LOG("%s\n", __func__);
 
         check_actions();
-        if(!active->health) bad("cannot decrement health");
         active->cooldown = 99;
+        active->current_actions = 0;
+        if(!active->health) return;
         active->can_attack = 0;
         inc(active->max_actions);
         active->health--;

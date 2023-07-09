@@ -16,9 +16,8 @@ TEAM_FILES=$(addsuffix team.so,$(TEAMS))
 
 PAUSE_COMMAND=read -p "press enter to continue..."
 
-ip.txt: getting-started.txt README.md
+ip.txt: README.md
 	@$(DOCKER_BUILD_ENV_COMMAND)
-	@cat getting-started.txt
 	@touch ip.txt
 	@echo docker will be built with: $(DOCKER_BUILD_COMMAND)
 	-@$(PAUSE_COMMAND)
